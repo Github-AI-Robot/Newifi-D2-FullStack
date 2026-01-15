@@ -1,25 +1,36 @@
 name: Build Hysteria Payload (Sing-box)
 on:
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
           go-version: '1.22'
+
       - name: Install UPX
         run: sudo apt-get install -y upx
-      - name: Compile and Compress
+
+      - name: Clone and Build
         run: |
           git clone https://github.com/SagerNet/sing-box.git
-          cd sing-box && git checkout dev
+          cd sing-box
+          git checkout dev
+          # 针对 MT7621 优化的软浮点编译指令 [cite: 262]
           GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
-          -tags "with_hysteria2,with_quic,without_v2ray,without_trojan,without_shadowsocks" \
-          -ldflags "-s -w" -o sing-box-tiny ./cmd/sing-box
+            -tags "with_hysteria2,with_quic,without_v2ray,without_trojan,without_shadowsocks,without_grpc" \
+            -ldflags "-s -w" \
+            -o sing-box-tiny ./cmd/sing-box
+          # 针对 32MB Flash 的极致压缩 [cite: 263]
           upx --lzma --best sing-box-tiny
-      - name: Upload
+
+      - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: sing-box-payload
