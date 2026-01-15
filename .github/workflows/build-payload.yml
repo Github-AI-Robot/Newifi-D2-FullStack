@@ -1,0 +1,28 @@
+name: Build Hysteria Payload (Sing-box)
+on:
+  workflow_dispatch: # 手动触发开关
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v4
+        with:
+          [cite_start]go-version: '1.22' # sing-box 需要较新版本 [cite: 259]
+      - name: Install UPX
+        run: sudo apt-get install -y upx
+      - name: Compile and Compress
+        run: |
+          git clone https://github.com/SagerNet/sing-box.git
+          cd sing-box && git checkout dev # 获取最新优化 [cite: 261]
+          # 关键：GOMIPS=softfloat 避免非法指令错误 [cite: 262]
+          GOOS=linux GOARCH=mipsle GOMIPS=softfloat go build -v \
+          -tags "with_hysteria2,with_quic,without_v2ray,without_trojan,without_shadowsocks,without_grpc" \
+          -ldflags "-s -w" -o sing-box-tiny ./cmd/sing-box # 移除调试符号 [cite: 263]
+          # LZMA 高压模式，节省 Flash 空间 [cite: 263]
+          upx --lzma --best sing-box-tiny 
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: sing-box-payload
+          path: sing-box/sing-box-tiny
